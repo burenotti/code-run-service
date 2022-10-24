@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "code-run-service"
+version = "0.1.0"
+description = "FastAPI microservice that allows you to run untrusted code and interact with it."
+authors = ["Artem Burenin  <burenotti@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+fastapi = "^0.85.1"
+runbox = "0.5.3"
+uvicorn = "^0.19.0"
+
+[tool.poetry.dev-dependencies]
+mypy = "^0.982"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
