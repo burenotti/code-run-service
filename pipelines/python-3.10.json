@@ -1,0 +1,47 @@
+{
+  "meta": {
+    "language": "python",
+    "version": "3.10-alpine",
+    "default": true
+  },
+  "pipeline": {
+    "setup": {
+      "use_volume": {
+        "key": "sources"
+      },
+      "write_files": {
+        "key": "init",
+        "profile": {
+          "image": "alpine:latest"
+        },
+        "volume": "sources",
+        "file_keys": [
+          "code"
+        ]
+      }
+    },
+    "run": {
+      "use_sandbox": {
+        "key": "python",
+        "profile": {
+          "image": "python:3.10-alpine",
+          "cmd_template": [
+            "python",
+            "main.py"
+          ],
+          "workdir": "/tmp/"
+        },
+        "limits": {
+          "time": 360,
+          "memory_mb": 256
+        },
+        "mounts": [
+          {
+            "key": "sources",
+            "bind": "/tmp/"
+          }
+        ]
+      }
+    }
+  }
+}
