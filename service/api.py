@@ -36,7 +36,7 @@ async def run_code(
             raw_message = await ws.receive_json(mode="text")
             message = parse_message(raw_message)
             await service.handle_message(message)
-        except pydantic.ValidationError as e:
+        except pydantic.ValidationError:
             await ws.send_json(ProtocolError(reason="Bad Request").dict())
         except WebSocketDisconnect:
             await service.terminate(Terminate())
