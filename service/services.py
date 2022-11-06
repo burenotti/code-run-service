@@ -1,4 +1,3 @@
-import asyncio
 from asyncio import Queue
 from enum import Enum
 from functools import singledispatchmethod
@@ -8,9 +7,10 @@ from typing import Any, Type, TypeVar, Protocol, AsyncGenerator
 from fastapi import Depends
 from runbox import DockerExecutor
 from runbox.build_stages import (
-    Pipeline, BasePipeline,
+    Pipeline,
     StreamType
 )
+from runbox.build_stages.pipeline import AsyncBasePipeline
 from starlette.websockets import WebSocket
 
 from service import messages
@@ -18,7 +18,7 @@ from service.messages import (
     InputMessageType, InputMessage, Execute,
     Terminate, AddFiles, WriteStdin, Restart, LogMessage
 )
-from service.pipelines import PipelineFactory
+from service.pipelines import PipelineFactory, AppAsyncPipeline
 from service.settings import settings
 
 T = TypeVar('T', covariant=True)
@@ -33,7 +33,7 @@ class AsyncGetter(Protocol[T]):
 def pipeline_singleton(
         dir_path: Path,
         stages_map: dict[str, str] | None = None,
-        class_: Type[Pipeline] = BasePipeline,
+        class_: Type[Pipeline] = AppAsyncPipeline,
 ) -> AsyncGetter[PipelineFactory]:
     factory: PipelineFactory | None = None
     stages = stages_map or dict(settings.runbox.stages)
@@ -41,7 +41,8 @@ def pipeline_singleton(
     async def get() -> PipelineFactory:
         nonlocal factory
         if factory is None:
-            factory = PipelineFactory.load_pipelines(dir_path, stages, class_)
+            factory = PipelineFactory.load_pipelines(dir_path, stages)
+            factory.set_pipeline_class(class_)
         return factory
 
     return get
@@ -126,15 +127,15 @@ class ExecutionService:
         self.observer = observer
         self.executor = executor
         self.selector = selector
+        self.pipeline: AsyncBasePipeline | None = None
         self.initial_state: dict[str, Any] = {
             'code': [],
         }
-        self.pipeline: Pipeline | None = None
-        self.pipeline_task: asyncio.Task[None] | None = None
 
     def set_language(self, language: str, version: str) -> None:
         print("Set language:", language, version)
         self.pipeline = self.selector.get(language, version)
+        assert self.pipeline is not None
         self.pipeline.with_observer(self.observer)
         self.pipeline.with_executor(self.executor)
 
@@ -150,18 +151,14 @@ class ExecutionService:
 
     @handle_message.register
     async def terminate(self, _: Terminate) -> None:
-        if self.pipeline_task is not None:
-            self.pipeline_task.cancel()
+        assert self.pipeline is not None
+        await self.pipeline.terminate()
 
     @handle_message.register
-    async def run(self, message: Execute):
-        print("Execute", message.command)
-
-        async def task():
-            await self.pipeline.execute_group('setup')
-            await self.pipeline.execute_group('run')
-
-        self.pipeline_task = asyncio.create_task(task())
+    async def run(self, _: Execute):
+        if self.pipeline is not None:
+            for group in self.pipeline.groups:
+                await self.pipeline.execute_group(group.name)
 
     @handle_message.register
     async def write_stdin(self, message: WriteStdin) -> None:
