@@ -132,7 +132,7 @@ class ExecutionService:
             'code': [],
         }
 
-    def set_language(self, language: str, version: str) -> None:
+    def set_language(self, language: str, version: str | None = None) -> None:
         print("Set language:", language, version)
         self.pipeline = self.selector.get(language, version)
         assert self.pipeline is not None

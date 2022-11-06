@@ -47,14 +47,14 @@ class PipelineFactory:
     def set_pipeline_class(self, class_: Type[Pipeline]) -> None:
         self._pipeline_class = class_
 
-    def get(self, language: str, version: str) -> Pipeline:
+    def get(self, language: str, version: str | None = None) -> Pipeline:
         selected: PipelineLoader | None = None
         for pipe in self.pipelines:
             if pipe.language == language:
                 if pipe.version == version:
                     selected = pipe.loader
 
-                if pipe.is_default:
+                if version is None and pipe.is_default:
                     selected = pipe.loader
 
         if selected is None:

@@ -29,7 +29,10 @@ async def run_code(
         version: str = Path(title="Version of chosen langauge"),
         service: ExecutionService = Depends(),
 ):
-    service.set_language(language, version)
+    if version == 'default':
+        service.set_language(language, None)
+    else:
+        service.set_language(language, version)
     await ws.accept()
     while True:
         try:
