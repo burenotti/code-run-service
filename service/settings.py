@@ -14,6 +14,9 @@ class RunboxSettings(BaseModel):
         "write_files": "runbox.build_stages.stages:WriteFiles"
     }
 
+    class Config:
+        env_prefix = 'RUNBOX__'
+
 
 class UvicornSetting(BaseModel):
     host: str = '127.0.0.1'
@@ -21,10 +24,16 @@ class UvicornSetting(BaseModel):
     workers: int = 1
     reload: bool = True
 
+    class Config:
+        env_prefix = 'UVICORN__'
+
 
 class Settings(BaseSettings):
     uvicorn: UvicornSetting = UvicornSetting()
     runbox: RunboxSettings = RunboxSettings()
+
+    class Config:
+        env_nested_delimiter = '__'
 
 
 settings = Settings(
