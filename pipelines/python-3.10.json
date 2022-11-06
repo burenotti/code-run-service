@@ -12,7 +12,8 @@
       "write_files": {
         "key": "init",
         "profile": {
-          "image": "alpine:latest"
+          "image": "alpine:latest",
+          "workdir": "/tmp/"
         },
         "volume": "sources",
         "file_keys": [

@@ -6,12 +6,12 @@ from pydantic import BaseSettings, BaseModel
 
 class RunboxSettings(BaseModel):
     docker_url: str | None = None
-    cfg_dir: Path = './pipelines'
+    cfg_dir: Path = Path('./pipelines')
 
     stages: Mapping[str, str] = {
         "use_sandbox": "runbox.build_stages.stages:UseSandbox",
         "use_volume": "runbox.build_stages.stages:UseVolume",
-        "write_files": "service.stages:WriteFiles"
+        "write_files": "runbox.build_stages.stages:WriteFiles"
     }
 
 
