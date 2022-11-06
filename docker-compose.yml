@@ -1,0 +1,9 @@
+services:
+  code-run:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - ${UVICORN__PORT}:${UVICORN__PORT}
