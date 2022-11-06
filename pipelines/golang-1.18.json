@@ -1,0 +1,49 @@
+{
+  "meta": {
+    "language": "go",
+    "version": "1.18",
+    "default": true
+  },
+  "pipeline": {
+    "setup": {
+      "use_volume": {
+        "key": "sources"
+      },
+      "write_files": {
+        "key": "init",
+        "profile": {
+          "image": "alpine:latest",
+          "workdir": "/tmp/"
+        },
+        "volume": "sources",
+        "file_keys": [
+          "code"
+        ]
+      }
+    },
+    "run": {
+      "use_sandbox": {
+        "key": "node",
+        "profile": {
+          "image": "golang:1.18",
+          "cmd_template": [
+            "go",
+            "run",
+            "main.go"
+          ],
+          "workdir": "/tmp/"
+        },
+        "limits": {
+          "time": 360,
+          "memory_mb": 256
+        },
+        "mounts": [
+          {
+            "key": "sources",
+            "bind": "/tmp/"
+          }
+        ]
+      }
+    }
+  }
+}
