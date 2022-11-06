@@ -11,8 +11,8 @@ def get_executor(url: str | None = None) -> Callable[[], Awaitable[DockerExecuto
         nonlocal executor
         nonlocal inited
         if not inited:
-            executor = DockerExecutor(url)
+            executor = DockerExecutor(url)  # type: ignore
             inited = True
-        return executor
+        return executor  # type: ignore
 
     return getter
