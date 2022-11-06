@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from itertools import groupby
 from pathlib import Path
 from typing import Type, Mapping
 
@@ -63,17 +62,18 @@ class PipelineFactory:
         return selected.fill(self._pipeline_class())
 
     def languages(self) -> list[LanguageInfo]:
-        langs = []
-        for lang, group in groupby(self.pipelines, key=lambda meta: meta.language):
-            default: str | None = None
-            versions: list[str] = []
-            item: PipelineMeta
-            for item in group:
-                if item.is_default:
-                    default = item.version
-                versions.append(item.version)
-                langs.append(LanguageInfo(language=lang, versions=versions, default_version=default))
-        return langs
+        langs: dict[str, LanguageInfo] = {}
+        for meta in self.pipelines:
+            if meta.language in langs:
+                langs[meta.language].versions.append(meta.version)
+            else:
+                langs[meta.language] = LanguageInfo(
+                    language=meta.language,
+                    versions=[meta.version],
+                )
+            if meta.is_default:
+                langs[meta.language].default_version = meta.version
+        return list(langs.values())
 
     @classmethod
     def load_pipelines(
