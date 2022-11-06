@@ -1,7 +1,8 @@
 import pydantic
 from fastapi import APIRouter, Path, WebSocket, Depends
+from starlette.websockets import WebSocketDisconnect
 
-from service.messages import ProtocolError
+from service.messages import ProtocolError, Terminate
 from service.pipelines import LanguageInfo, PipelineFactory
 from service.services import (
     parse_message, ExecutionService,
@@ -37,3 +38,5 @@ async def run_code(
             await service.handle_message(message)
         except pydantic.ValidationError as e:
             await ws.send_json(ProtocolError(reason="Bad Request").dict())
+        except WebSocketDisconnect:
+            await service.terminate(Terminate())
