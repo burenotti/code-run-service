@@ -1,12 +1,14 @@
 import pydantic
-from fastapi import APIRouter, Path, WebSocket, Depends
-from starlette.websockets import WebSocketDisconnect
+from fastapi import (
+    APIRouter, Path, WebSocket, Depends,
+    WebSocketDisconnect
+)
 
 from service.messages import ProtocolError, Terminate
 from service.pipelines import LanguageInfo, PipelineFactory
 from service.services import (
     parse_message, ExecutionService,
-    get_selector
+    get_selector, StateError, ExecutionState
 )
 
 router = APIRouter(
@@ -34,12 +36,17 @@ async def run_code(
     else:
         service.set_language(language, version)
     await ws.accept()
-    while True:
+    disconnected = False
+    while not disconnected:
         try:
             raw_message = await ws.receive_json(mode="text")
             message = parse_message(raw_message)
             await service.handle_message(message)
+        except StateError as why:
+            await ws.send_text(ProtocolError(reason=why.reason).json())
         except pydantic.ValidationError:
-            await ws.send_json(ProtocolError(reason="Bad Request").dict())
-        except WebSocketDisconnect:
-            await service.terminate(Terminate())
+            await ws.send_text(ProtocolError(reason="Bad Request").json())
+        except (WebSocketDisconnect, RuntimeError):
+            disconnected = True
+            if service.current_state != ExecutionState.terminated:
+                await service.terminate(Terminate())

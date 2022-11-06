@@ -1,3 +1,4 @@
+import enum
 from asyncio import Queue
 from enum import Enum
 from functools import singledispatchmethod
@@ -111,19 +112,32 @@ def parse_message(message: dict[str, Any]) -> InputMessage:
     return type_map[message_type].parse_obj(message)
 
 
+class ExecutionState(str, enum.Enum):
+    setup = "setup"
+    running = "running"
+    finished = "finished"
+    terminated = "terminated"
+
+
+class StateError(Exception):
+
+    def __init__(self, reason: str, state: ExecutionState):
+        super().__init__(reason, state)
+        self.reason = reason
+        self.state = state
+
+
 class ExecutionService:
-    class State(str, Enum):
-        setup = "code_setup"
-        run = "run"
-        finish = "finish"
 
     def __init__(
             self,
+            ws: WebSocket,
             selector: PipelineFactory = Depends(get_selector),
             executor: DockerExecutor = Depends(get_executor),
             observer: WebsocketObserver = Depends(get_websocket_observer),
     ):
-        self.current_state = self.State.setup
+        self.ws = ws
+        self.current_state = ExecutionState.setup
         self.observer = observer
         self.executor = executor
         self.selector = selector
@@ -145,6 +159,9 @@ class ExecutionService:
 
     @handle_message.register
     async def write_files(self, message: AddFiles):
+        if self.current_state != ExecutionState.setup:
+            raise StateError("Writing files is not allowed on this step", self.current_state)
+
         print("Write:", message.files)
         self.initial_state['code'].extend(message.files)
         self.pipeline.with_initial_state(self.initial_state)  # type: ignore
@@ -152,15 +169,31 @@ class ExecutionService:
     @handle_message.register
     async def terminate(self, _: Terminate) -> None:
         assert self.pipeline is not None
+
+        if self.current_state != ExecutionState.running:
+            raise StateError("Can't terminate sandbox, which is not running", self.current_state)
+
+        self.current_state = ExecutionState.terminated
         await self.pipeline.terminate()
+        await self.ws.close()
 
     @handle_message.register
     async def run(self, _: Execute):
+        if self.current_state == ExecutionState.running:
+            raise StateError("Sandbox is already running", self.current_state)
+        elif self.current_state in (ExecutionState.finished, ExecutionState.terminated):
+            raise StateError("Sandbox can be started only once", self.current_state)
+        elif self.current_state != ExecutionState.setup:
+            raise StateError("Can't execution is not allowed on this step", self.current_state)
+
+        self.current_state = ExecutionState.running
         if self.pipeline is not None:
             for group in self.pipeline.groups:
                 await self.pipeline.execute_group(group.name)
 
     @handle_message.register
     async def write_stdin(self, message: WriteStdin) -> None:
+        if self.current_state != ExecutionState.running:
+            raise StateError("Can write stdin only in running sandbox", self.current_state)
         print("WriteStdin: ", message.content)
         await self.observer.put_stdin(message.content)
